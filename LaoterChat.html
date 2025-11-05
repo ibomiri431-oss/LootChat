@@ -1,0 +1,1151 @@
+<!DOCTYPE html>
+<html lang="tr">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>🧠 AI Code Studio</title>
+    <!-- Gerekli Harici Kütüphaneler (CDN) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked@4.0.17/marked.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/highlight.min.js"></script>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.9.0/styles/atom-one-dark.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Roboto+Mono:wght@400;700&display=swap" rel="stylesheet">
+
+    <style>
+        /* CSS Başlangıcı */
+        
+         :root {
+            --bg-dark: #0a0e10;
+            --text-neon: #00ff88;
+            --text-light: #e0e0e0;
+            --glass-bg: rgba(25, 30, 35, 0.6);
+            --panel-bg: rgba(15, 18, 20, 0.8);
+            --border-neon: #00ff88;
+            --button-primary: #1e3a8a;
+            /* Koyu Mavi */
+            --button-hover: #104e7c;
+            --input-bg: rgba(40, 45, 50, 0.7);
+            --error-red: #ff3366;
+            --shadow-neon: 0 0 5px var(--border-neon), 0 0 10px var(--border-neon);
+        }
+        
+        body,
+        html {
+            height: 100%;
+            margin: 0;
+            font-family: 'Roboto Mono', monospace;
+            color: var(--text-light);
+            background-color: var(--bg-dark);
+            overflow: hidden;
+            /* Canvas için */
+        }
+        /* MATRIX ARKA PLAN ANİMASYONU */
+        
+        #matrix-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            z-index: -1;
+            opacity: 0.15;
+        }
+        /* ANA UYGULAMA YAPISI */
+        
+        .app-container {
+            display: flex;
+            height: 100%;
+            position: relative;
+            z-index: 1;
+        }
+        /* SOL PANEL (Sohbet Geçmişi ve Hesap) */
+        
+        .sidebar {
+            width: 300px;
+            background: var(--panel-bg);
+            backdrop-filter: blur(8px);
+            border-right: 1px solid var(--border-neon);
+            padding: 20px;
+            display: flex;
+            flex-direction: column;
+            transition: transform 0.3s ease-in-out;
+            position: relative;
+            z-index: 10;
+            box-shadow: 2px 0 10px rgba(0, 0, 0, 0.5);
+        }
+        /* Ana İçerik Alanı */
+        
+        .main-content {
+            flex-grow: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 20px;
+            gap: 20px;
+            overflow-y: auto;
+            max-height: 100%;
+        }
+        /* Glassmorphism Etkisi Verilen Ortak Kart Stili */
+        
+        .card {
+            background: var(--glass-bg);
+            backdrop-filter: blur(10px);
+            border: 1px solid rgba(0, 255, 136, 0.2);
+            border-radius: 12px;
+            padding: 20px;
+            box-shadow: 0 4px 30px rgba(0, 0, 0, 0.3);
+        }
+        /* Başlık Stili */
+        
+        h1.title {
+            color: var(--text-neon);
+            text-align: center;
+            margin-top: 0;
+            text-shadow: var(--shadow-neon);
+            font-size: 1.8rem;
+        }
+        /* KULLANICI ARAYÜZÜ (Giriş/Kayıt) */
+        
+        #auth-modal {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.85);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            z-index: 1000;
+        }
+        
+        #auth-form {
+            width: 350px;
+            text-align: center;
+        }
+        
+        #auth-form input {
+            width: calc(100% - 24px);
+            padding: 12px;
+            margin: 10px 0;
+            background: var(--input-bg);
+            border: 1px solid var(--border-neon);
+            border-radius: 6px;
+            color: var(--text-light);
+            outline: none;
+            transition: box-shadow 0.3s;
+        }
+        
+        #auth-form input:focus {
+            box-shadow: var(--shadow-neon);
+        }
+        /* YAZILIM ALANI (Ortadaki Ana Alan) */
+        
+        .chat-area {
+            flex-grow: 1;
+            min-height: 0;
+            display: flex;
+            flex-direction: column;
+            padding: 0;
+            position: relative;
+        }
+        /* Mesaj Geçmişi */
+        
+        #messages {
+            flex-grow: 1;
+            overflow-y: auto;
+            padding: 0 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 20px;
+            padding-bottom: 20px;
+        }
+        
+        .message {
+            max-width: 90%;
+            margin-right: auto;
+            padding: 15px;
+            border-radius: 10px;
+            position: relative;
+        }
+        
+        .user-message {
+            background: var(--button-primary);
+            margin-left: auto;
+            margin-right: 0;
+            color: white;
+            border-bottom-right-radius: 0;
+            text-align: right;
+            max-width: 80%;
+        }
+        
+        .ai-message {
+            background: var(--panel-bg);
+            border: 1px solid var(--border-neon);
+            border-bottom-left-radius: 0;
+            max-width: 95%;
+            margin-left: 0;
+        }
+        /* Kod Terminal Efekti */
+        
+        .code-container {
+            margin-top: 15px;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: var(--shadow-neon);
+        }
+        
+        .code-container pre {
+            background: rgba(0, 0, 0, 0.8);
+            padding: 15px;
+            margin: 0;
+            overflow-x: auto;
+            font-size: 0.9rem;
+            color: var(--text-neon);
+            position: relative;
+            line-height: 1.4;
+            border-left: 5px solid var(--border-neon);
+        }
+        
+        .code-container pre code {
+            /* Highlight.js teması üzerinden renkleri alır */
+            font-family: 'Roboto Mono', monospace;
+        }
+        /* Yanıt Kontrolleri (Ses, Kopyala, İndir) */
+        
+        .message-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 10px;
+            justify-content: flex-end;
+            border-top: 1px solid rgba(0, 255, 136, 0.1);
+            padding-top: 5px;
+        }
+        
+        .message-actions button {
+            background: transparent;
+            border: 1px solid var(--text-neon);
+            color: var(--text-neon);
+            padding: 5px 10px;
+            border-radius: 5px;
+            cursor: pointer;
+            transition: all 0.2s;
+            font-size: 0.8rem;
+        }
+        
+        .message-actions button:hover {
+            background: var(--border-neon);
+            color: var(--bg-dark);
+            box-shadow: var(--shadow-neon);
+        }
+        /* GİRİŞ ALANI */
+        
+        .input-area {
+            display: flex;
+            gap: 10px;
+            padding: 20px;
+            background: var(--panel-bg);
+            border-top: 1px solid var(--border-neon);
+        }
+        
+        #message-input {
+            flex-grow: 1;
+            padding: 15px;
+            border-radius: 8px;
+            border: 1px solid var(--border-neon);
+            background: var(--input-bg);
+            color: var(--text-light);
+            font-size: 1rem;
+            outline: none;
+        }
+        
+        .action-buttons button,
+        .auth-button {
+            padding: 15px 20px;
+            border: none;
+            border-radius: 8px;
+            cursor: pointer;
+            background: var(--button-primary);
+            color: var(--text-light);
+            font-weight: bold;
+            transition: background 0.3s, box-shadow 0.3s;
+        }
+        
+        .action-buttons button:hover,
+        .auth-button:hover {
+            background: var(--button-hover);
+            box-shadow: 0 0 10px var(--button-hover);
+        }
+        
+        #voice-btn.recording {
+            background: var(--error-red);
+            animation: pulse 1s infinite alternate;
+        }
+        
+        #file-upload-btn {
+            background: #4a4a4a;
+        }
+        
+        @keyframes pulse {
+            from {
+                box-shadow: 0 0 5px var(--error-red);
+            }
+            to {
+                box-shadow: 0 0 15px var(--error-red);
+            }
+        }
+        /* Sohbet Geçmişi Listesi */
+        
+        #history-list {
+            flex-grow: 1;
+            overflow-y: auto;
+            margin-top: 15px;
+            padding-right: 5px;
+            border-top: 1px solid rgba(0, 255, 136, 0.1);
+            padding-top: 15px;
+        }
+        
+        .history-item {
+            padding: 10px;
+            margin-bottom: 8px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            cursor: pointer;
+            transition: background 0.2s;
+            overflow: hidden;
+            white-space: nowrap;
+            text-overflow: ellipsis;
+        }
+        
+        .history-item:hover {
+            background: rgba(0, 255, 136, 0.1);
+        }
+        /* Yükleniyor Göstergesi */
+        
+        .loading-dots span {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--text-neon);
+            margin: 0 2px;
+            animation: blink 1.4s infinite both;
+        }
+        
+        .loading-dots span:nth-child(2) {
+            animation-delay: 0.2s;
+        }
+        
+        .loading-dots span:nth-child(3) {
+            animation-delay: 0.4s;
+        }
+        
+        @keyframes blink {
+            0% {
+                opacity: 0.2;
+            }
+            20% {
+                opacity: 1;
+            }
+            100% {
+                opacity: 0.2;
+            }
+        }
+        /* Gizlenen Girişler */
+        
+        #file-input {
+            display: none;
+        }
+        /* Oturum Bilgisi */
+        
+        #user-info {
+            padding: 10px;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 6px;
+            margin-bottom: 15px;
+            border: 1px solid var(--error-red);
+            font-size: 0.9rem;
+        }
+        
+        #logout-btn {
+            background: var(--error-red);
+            width: 100%;
+            margin-top: 10px;
+        }
+        /* Footer */
+        
+        .footer {
+            text-align: center;
+            font-size: 0.7rem;
+            color: #555;
+            padding-top: 20px;
+            margin-top: auto;
+            border-top: 1px solid rgba(255, 255, 255, 0.05);
+        }
+        /* Responsiveness for Mobile */
+        
+        @media (max-width: 768px) {
+            .sidebar {
+                position: fixed;
+                height: 100%;
+                left: 0;
+                top: 0;
+                transform: translateX(-100%);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-content {
+                padding: 10px;
+            }
+            .message {
+                max-width: 100%;
+            }
+            .input-area {
+                flex-direction: column;
+                padding: 10px;
+            }
+            .action-buttons {
+                display: flex;
+                width: 100%;
+                gap: 5px;
+            }
+            .action-buttons button {
+                flex-grow: 1;
+                padding: 10px;
+            }
+        }
+        /* CSS Bitişi */
+    </style>
+</head>
+
+<body>
+
+    <!-- MATRIX ARKA PLAN -->
+    <canvas id="matrix-canvas"></canvas>
+
+    <!-- KULLANICI GİRİŞ/KAYIT EKRANI -->
+    <div id="auth-modal" style="display: none;">
+        <div id="auth-form" class="card">
+            <h1 class="title">AI Code Studio</h1>
+            <p id="auth-message" style="color: var(--error-red);"></p>
+            <input type="text" id="username-input" placeholder="Kullanıcı Adı" required>
+            <input type="password" id="password-input" placeholder="Şifre" required>
+            <button class="auth-button" onclick="handleAuth(true)">Giriş Yap</button>
+            <button class="auth-button" onclick="handleAuth(false)">Kayıt Ol</button>
+        </div>
+    </div>
+
+    <!-- ANA UYGULAMA İÇERİĞİ -->
+    <div id="app" class="app-container" style="display: none;">
+
+        <!-- SOL PANEL - SOHBET GEÇMİŞİ ve HESAP -->
+        <div id="sidebar" class="sidebar">
+            <h1 class="title" style="font-size: 1.5rem; text-align: left;">Geçmiş</h1>
+
+            <div id="user-info">
+                <strong>Oturum:</strong> <span id="current-username"></span>
+            </div>
+
+            <button class="auth-button" onclick="newChat()">➕ Yeni Sohbet</button>
+
+            <div id="history-list">
+                <!-- Sohbet geçmişi burada listelenecek -->
+            </div>
+
+            <button id="logout-btn" class="auth-button" onclick="logout()">Çıkış Yap</button>
+
+            <div class="footer">AI Code Studio © 2025</div>
+        </div>
+
+        <!-- ANA İÇERİK - SOHBET VE KOD ÜRETİMİ -->
+        <div class="main-content">
+            <h1 class="title">🧠 AI Code Studio</h1>
+
+            <div class="card chat-area">
+                <div id="messages">
+                    <div class="ai-message message">
+                        Hoş geldiniz! Ben, HTML, Python ve siber güvenlik araçları dahil olmak üzere birçok dilde size yardımcı olabilecek bir yapay zeka kod asistanıyım. Nasıl bir kod yazmak istersiniz?
+                        <div class="message-actions">
+                            <button onclick="readMessage(this)">Sesle Oku 🎙️</button>
+                            <button onclick="copyToClipboard(this)">Kopyala 📋</button>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MESAJ GİRİŞ ALANI -->
+                <div class="input-area">
+                    <input type="text" id="message-input" placeholder="Bir soru sorun, bir kod isteyin...">
+
+                    <div class="action-buttons">
+                        <button id="file-upload-btn" title="Dosya Gönder/Yükle">📁</button>
+                        <input type="file" id="file-input" multiple onchange="handleFileSelect(event)">
+                        <button id="voice-btn" title="Sesle Konuş (Web Speech API)">🎙️</button>
+                        <button id="send-btn" title="Gönder">🚀</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        /* JAVASCRIPT BAŞLANGICI */
+        const API_KEY = "AIzaSyBBZoXaNWvkZbfgLocZVEJAqiNyemqXXhw"; // Canvas ortamında otomatik sağlanır
+        const API_URL = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${API_KEY}`;
+
+        // DOM Elementleri
+        const authModal = document.getElementById('auth-modal');
+        const appContainer = document.getElementById('app');
+        const authMessage = document.getElementById('auth-message');
+        const messageInput = document.getElementById('message-input');
+        const sendBtn = document.getElementById('send-btn');
+        const voiceBtn = document.getElementById('voice-btn');
+        const fileInput = document.getElementById('file-input');
+        const fileUploadBtn = document.getElementById('file-upload-btn');
+        const messagesContainer = document.getElementById('messages');
+        const historyList = document.getElementById('history-list');
+        const sidebar = document.getElementById('sidebar');
+
+        let chatHistory = [];
+        let currentChatId = null;
+        let isAwaitingResponse = false;
+        let isRecording = false;
+
+        // Kullanıcı yetkilendirme sistemi (LocalStorage ile)
+        function checkAuth() {
+            const user = localStorage.getItem('ai_code_studio_user');
+            if (user) {
+                const userData = JSON.parse(user);
+                document.getElementById('current-username').textContent = userData.username;
+                authModal.style.display = 'none';
+                appContainer.style.display = 'flex';
+                loadChatHistory();
+            } else {
+                authModal.style.display = 'flex';
+                appContainer.style.display = 'none';
+            }
+        }
+
+        function handleAuth(isLogin) {
+            const username = document.getElementById('username-input').value.trim();
+            const password = document.getElementById('password-input').value.trim();
+            authMessage.textContent = '';
+
+            if (!username || !password) {
+                authMessage.textContent = 'Kullanıcı adı ve şifre zorunludur.';
+                return;
+            }
+
+            const storedUser = localStorage.getItem(`user_${username}`);
+
+            if (isLogin) {
+                if (storedUser) {
+                    const userData = JSON.parse(storedUser);
+                    if (userData.password === password) {
+                        localStorage.setItem('ai_code_studio_user', JSON.stringify(userData));
+                        checkAuth();
+                    } else {
+                        authMessage.textContent = 'Yanlış şifre.';
+                    }
+                } else {
+                    authMessage.textContent = 'Kullanıcı bulunamadı.';
+                }
+            } else { // Kayıt Ol
+                if (storedUser) {
+                    authMessage.textContent = 'Bu kullanıcı adı zaten alınmış.';
+                } else {
+                    const newUser = {
+                        username,
+                        password,
+                        chats: {}
+                    };
+                    localStorage.setItem(`user_${username}`, JSON.stringify(newUser));
+                    localStorage.setItem('ai_code_studio_user', JSON.stringify(newUser));
+                    checkAuth();
+                }
+            }
+        }
+
+        function logout() {
+            localStorage.removeItem('ai_code_studio_user');
+            checkAuth();
+            chatHistory = [];
+            currentChatId = null;
+            messagesContainer.innerHTML = '';
+        }
+
+        // Sohbet Geçmişi Yönetimi
+        function getCurrentUserStorage() {
+            const user = localStorage.getItem('ai_code_studio_user');
+            if (!user) return null;
+            const userData = JSON.parse(user);
+            const fullUserData = JSON.parse(localStorage.getItem(`user_${userData.username}`));
+            return fullUserData;
+        }
+
+        function saveChat() {
+            if (chatHistory.length === 0) return;
+
+            const fullUserData = getCurrentUserStorage();
+            if (!fullUserData) return;
+
+            if (!currentChatId) {
+                currentChatId = Date.now().toString();
+            }
+
+            // İlk mesajı başlık olarak kullan
+            const title = chatHistory[0].text.substring(0, 30) + (chatHistory[0].text.length > 30 ? '...' : '');
+
+            fullUserData.chats[currentChatId] = {
+                id: currentChatId,
+                title: title,
+                history: chatHistory,
+                timestamp: Date.now()
+            };
+
+            localStorage.setItem(`user_${fullUserData.username}`, JSON.stringify(fullUserData));
+
+            // Kullanıcı verisini de güncelle
+            const currentUser = JSON.parse(localStorage.getItem('ai_code_studio_user'));
+            currentUser.chats = fullUserData.chats;
+            localStorage.setItem('ai_code_studio_user', JSON.stringify(currentUser));
+
+            renderHistoryList();
+        }
+
+        function loadChat(chatId) {
+            const fullUserData = getCurrentUserStorage();
+            if (!fullUserData || !fullUserData.chats[chatId]) return;
+
+            currentChatId = chatId;
+            chatHistory = fullUserData.chats[chatId].history;
+            renderMessages();
+            sidebar.classList.remove('open'); // Mobil için
+        }
+
+        function newChat() {
+            saveChat(); // Mevcut sohbeti kaydet
+            chatHistory = [];
+            currentChatId = null;
+            messagesContainer.innerHTML = `
+                <div class="ai-message message">
+                    Yeni bir sohbete başladınız. Nasıl bir kod yazmak istersiniz?
+                    <div class="message-actions">
+                         <button onclick="readMessage(this)">Sesle Oku 🎙️</button>
+                         <button onclick="copyToClipboard(this)">Kopyala 📋</button>
+                    </div>
+                </div>
+            `;
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+        }
+
+        function renderHistoryList() {
+            const fullUserData = getCurrentUserStorage();
+            if (!fullUserData) {
+                historyList.innerHTML = '';
+                return;
+            }
+
+            const chats = Object.values(fullUserData.chats).sort((a, b) => b.timestamp - a.timestamp);
+            historyList.innerHTML = chats.map(chat => `
+                <div class="history-item" onclick="loadChat('${chat.id}')">
+                    ${chat.title}
+                </div>
+            `).join('');
+        }
+
+        function loadChatHistory() {
+            const user = localStorage.getItem('ai_code_studio_user');
+            if (!user) return;
+            const userData = JSON.parse(user);
+            // Tam kullanıcı verisini yükle
+            const fullUserData = JSON.parse(localStorage.getItem(`user_${userData.username}`));
+            if (fullUserData && fullUserData.chats) {
+                userData.chats = fullUserData.chats;
+                localStorage.setItem('ai_code_studio_user', JSON.stringify(userData));
+            }
+
+            // İlk yüklemede, en son sohbeti yükle veya yeni sohbet başlat
+            const chatKeys = Object.keys(userData.chats || {});
+            if (chatKeys.length > 0) {
+                const latestChatId = chatKeys.reduce((a, b) => (userData.chats[a].timestamp > userData.chats[b].timestamp ? a : b));
+                loadChat(latestChatId);
+            } else {
+                newChat(); // Yeni sohbet başlat
+            }
+            renderHistoryList();
+        }
+
+        // Mesaj Render Fonksiyonları
+        function renderMessages() {
+            messagesContainer.innerHTML = '';
+            chatHistory.forEach(msg => {
+                        const messageHtml = msg.role === 'user' ?
+                            `<div class="user-message message">
+                        ${msg.text}
+                        <div class="message-actions">
+                            <button onclick="copyToClipboard(this)">Kopyala 📋</button>
+                        </div>
+                    </div>` :
+                            `<div class="ai-message message">
+                        ${msg.htmlContent}
+                        <div class="message-actions">
+                            ${msg.hasCode ? `<button onclick="downloadCode(this)">Kodu İndir (ZIP) 💾</button>` : ''}
+                            <button onclick="readMessage(this)">Sesle Oku 🎙️</button>
+                            <button onclick="copyToClipboard(this)">Kopyala 📋</button>
+                        </div>
+                    </div>`;
+                messagesContainer.innerHTML += messageHtml;
+            });
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+            hljs.highlightAll(); // Yeni eklenen kod bloklarını vurgula
+        }
+        
+        // Dosya İşleme
+        fileUploadBtn.addEventListener('click', () => fileInput.click());
+
+        function handleFileSelect(event) {
+            const files = event.target.files;
+            if (files.length === 0) return;
+
+            let fileContents = [];
+            let filesProcessed = 0;
+
+            const statusMsg = document.createElement('div');
+            statusMsg.className = 'user-message message';
+            statusMsg.textContent = `${files.length} dosya yükleniyor...`;
+            messagesContainer.appendChild(statusMsg);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            Array.from(files).forEach(file => {
+                const reader = new FileReader();
+                reader.onload = (e) => {
+                    fileContents.push({
+                        fileName: file.name,
+                        content: e.target.result
+                    });
+                    filesProcessed++;
+                    if (filesProcessed === files.length) {
+                        // Dosya içeriklerini mesaja ekle
+                        const filePrompt = fileContents.map(f => 
+                            `--- Dosya Adı: ${f.fileName} ---\n${f.content}\n--------------------------`
+                        ).join('\n\n');
+                        
+                        messageInput.value = `Bu dosyaları incele ve bana geri bildirimde bulun veya bir düzenleme yapmamı iste:\n\n${filePrompt}`;
+                        statusMsg.textContent = `${files.length} dosya yüklendi. Gönder butonuna basarak devam edin.`;
+                        // Dosya girişini temizle
+                        fileInput.value = ''; 
+                    }
+                };
+                reader.onerror = () => {
+                    statusMsg.textContent = `Hata: ${file.name} yüklenemedi.`;
+                    fileInput.value = '';
+                };
+                reader.readAsText(file); // Metin dosyalarını okur
+            });
+        }
+        
+        // Mesaj Gönderme ve API Çağrısı
+        async function handleSend() {
+            if (isAwaitingResponse) return;
+
+            const userMessageText = messageInput.value.trim();
+            if (!userMessageText) return;
+
+            isAwaitingResponse = true;
+            messageInput.value = '';
+            
+            // Kullanıcı mesajını ekle
+            const userMsg = { role: 'user', text: userMessageText };
+            chatHistory.push(userMsg);
+            
+            // Geçici olarak kullanıcı mesajını göster
+            const userHtml = `<div class="user-message message">${userMessageText}<div class="message-actions"><button onclick="copyToClipboard(this)">Kopyala 📋</button></div></div>`;
+            messagesContainer.innerHTML += userHtml;
+
+            // Yükleniyor animasyonunu göster
+            const loadingMsg = document.createElement('div');
+            loadingMsg.className = 'ai-message message typing-animation';
+            loadingMsg.innerHTML = '<div class="loading-dots"><span></span><span></span><span></span></div>';
+            messagesContainer.appendChild(loadingMsg);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Yapay zeka yanıtını al
+            const responseData = await fetchGeminiResponse(userMessageText);
+
+            // Yükleniyor animasyonunu kaldır
+            loadingMsg.remove();
+            isAwaitingResponse = false;
+            
+            if (responseData.error) {
+                const errorMsg = { 
+                    role: 'ai', 
+                    text: `Hata: ${responseData.error}`,
+                    htmlContent: `<p style="color: var(--error-red);">Hata: ${responseData.error}. Lütfen daha sonra tekrar deneyin veya API ayarlarınızı kontrol edin.</p>`,
+                    hasCode: false
+                };
+                chatHistory.push(errorMsg);
+                messagesContainer.innerHTML += `<div class="ai-message message">${errorMsg.htmlContent}</div>`;
+                messagesContainer.scrollTop = messagesContainer.scrollHeight;
+                return;
+            }
+
+            const aiText = responseData.text;
+            
+            // Kod bloklarını tespit et ve dosya isimlerini belirle
+            let codeFileNames = extractCodeFiles(aiText);
+            let hasCode = codeFileNames.length > 0;
+            
+            // AI yanıt mesajını oluştur
+            const aiMsg = document.createElement('div');
+            aiMsg.className = 'ai-message message';
+            messagesContainer.appendChild(aiMsg);
+            messagesContainer.scrollTop = messagesContainer.scrollHeight;
+
+            // Canlı Yazma Animasyonu
+            await typeMessage(aiMsg, aiText, hasCode, codeFileNames);
+            
+            // Mesaj geçmişini güncelle ve kaydet
+            const finalHtml = aiMsg.innerHTML;
+            const finalAiMsg = { role: 'ai', text: aiText, htmlContent: finalHtml, hasCode: hasCode };
+            chatHistory.push(finalAiMsg);
+            saveChat();
+            
+            // Son eklenen kod bloklarını vurgula
+            aiMsg.querySelectorAll('pre code').forEach((block) => {
+                hljs.highlightElement(block);
+            });
+        }
+        
+        // Gemini API ile Konuşma
+        async function fetchGeminiResponse(prompt) {
+            const systemPrompt = "Sen, HTML, CSS, JavaScript, Python, C++, C#, PHP gibi dillerde uzmanlaşmış, siber güvenlik araçları ve ağ komutları üretebilen bir yapay zeka kod asistanısın. Yanıtlarını Markdown formatında biçimlendir ve özellikle kod bloklarını belirt. Kod yazarken, sadece kodu ve açıklamayı içeren tek bir yanıt dön. Her zaman profesyonel ve yardımcı ol.";
+            
+            const conversationHistory = chatHistory.map(msg => ({
+                role: msg.role === 'user' ? 'user' : 'model',
+                parts: [{ text: msg.text }]
+            }));
+            
+            const payload = {
+                contents: conversationHistory,
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+                tools: [{ "google_search": {} }],
+            };
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API Hatası: ${response.status} ${response.statusText}`);
+                }
+
+                const result = await response.json();
+                const text = result.candidates?.[0]?.content?.parts?.[0]?.text || "Üzgünüm, bir yanıt alamadım.";
+                return { text };
+
+            } catch (error) {
+                console.error('Fetch Hatası:', error);
+                return { error: error.message };
+            }
+        }
+        
+        // Canlı Yazım Animasyonu
+        async function typeMessage(element, fullText, hasCode, codeFiles) {
+            const tempDiv = document.createElement('div');
+            // Markdown'ı HTML'e çevir
+            tempDiv.innerHTML = marked.parse(fullText); 
+            
+            // Tüm metin düğümlerini topla
+            const allNodes = Array.from(tempDiv.childNodes);
+            
+            element.innerHTML = '';
+            
+            for (const node of allNodes) {
+                if (node.nodeType === 3) { // Metin Düğümü
+                    const span = document.createElement('span');
+                    element.appendChild(span);
+                    for (let i = 0; i < node.textContent.length; i++) {
+                        span.textContent += node.textContent[i];
+                        if (i % 2 === 0) await new Promise(resolve => setTimeout(resolve, 15)); // Yazma hızı
+                    }
+                } else if (node.nodeType === 1) { // Element Düğümü (Örn: <p>, <h1>, <pre>)
+                    if (node.tagName === 'PRE') {
+                         // Kod Bloğu için özel terminal efekti
+                        const codeContainer = document.createElement('div');
+                        codeContainer.className = 'code-container';
+                        
+                        const pre = document.createElement('pre');
+                        const code = document.createElement('code');
+                        code.className = node.querySelector('code').className; // Dil sınıfını koru
+                        pre.appendChild(code);
+                        codeContainer.appendChild(pre);
+                        element.appendChild(codeContainer);
+                        
+                        const codeText = node.querySelector('code').textContent;
+                        
+                        for (let i = 0; i < codeText.length; i++) {
+                            code.textContent += codeText[i];
+                            if (i % 1 === 0) await new Promise(resolve => setTimeout(resolve, 1)); // Kod yazma hızı
+                            pre.scrollTop = pre.scrollHeight;
+                        }
+                        
+                    } else {
+                        // Diğer elementleri (paragraf, başlık vb.) olduğu gibi ekle
+                        element.appendChild(node.cloneNode(true));
+                    }
+                }
+            }
+
+            // Aksiyon butonlarını ve indirme butonunu ekle
+            const actionsDiv = document.createElement('div');
+            actionsDiv.className = 'message-actions';
+            
+            if (hasCode) {
+                 const downloadBtn = document.createElement('button');
+                 downloadBtn.textContent = 'Kodu İndir (ZIP) 💾';
+                 downloadBtn.onclick = () => downloadCode(element);
+                 actionsDiv.appendChild(downloadBtn);
+            }
+            
+            const readBtn = document.createElement('button');
+            readBtn.textContent = 'Sesle Oku 🎙️';
+            readBtn.onclick = () => readMessage(element);
+            actionsDiv.appendChild(readBtn);
+
+            const copyBtn = document.createElement('button');
+            copyBtn.textContent = 'Kopyala 📋';
+            copyBtn.onclick = () => copyToClipboard(element);
+            actionsDiv.appendChild(copyBtn);
+            
+            element.appendChild(actionsDiv);
+        }
+        
+        // Kod Bloklarından Dosya Adlarını Çıkarma
+        function extractCodeFiles(markdownText) {
+            const files = [];
+            const codeBlocks = markdownText.match(/```(\w+)\n([\s\S]*?)\n```/g) || [];
+            
+            codeBlocks.forEach((block, index) => {
+                const langMatch = block.match(/^```(\w+)/);
+                const lang = langMatch ? langMatch[1].toLowerCase() : 'txt';
+                let ext = 'txt';
+
+                // Dilden uzantı belirleme
+                switch(lang) {
+                    case 'html': ext = 'html'; break;
+                    case 'css': ext = 'css'; break;
+                    case 'javascript':
+                    case 'js': ext = 'js'; break;
+                    case 'python':
+                    case 'py': ext = 'py'; break;
+                    case 'c++':
+                    case 'cpp': ext = 'cpp'; break;
+                    case 'csharp':
+                    case 'c#': ext = 'cs'; break;
+                    case 'php': ext = 'php'; break;
+                    default: ext = 'txt'; break;
+                }
+                
+                // Basit bir isimlendirme
+                const filename = (lang === 'html' ? 'index' : `main_${index + 1}`) + '.' + ext;
+
+                // Kod içeriğini al
+                const content = block.match(/```[\w\s]*\n([\s\S]*?)\n```/)[1].trim();
+
+                files.push({ filename, content });
+            });
+            return files;
+        }
+
+        // Kodu ZIP olarak İndirme
+        function downloadCode(messageElement) {
+            // Tamamen aynı mesaj içeriğini bulmak zor olduğu için, mesajın metninin bir kısmını kullanarak bulmaya çalışırız.
+            const messageText = messageElement.textContent.substring(0, 100);
+            const aiMessage = chatHistory.find(msg => 
+                msg.role === 'ai' && msg.text.includes(messageText.substring(0, 50)) // İlk 50 karakteri eşleştir
+            );
+
+            if (!aiMessage) {
+                console.error("İndirilecek mesaj bulunamadı.");
+                return;
+            }
+
+            const markdownText = aiMessage.text;
+            const files = extractCodeFiles(markdownText);
+            
+            if (files.length === 0) {
+                alert("İndirilecek kod bloğu bulunamadı.");
+                return;
+            }
+
+            const zip = new JSZip();
+            files.forEach(file => {
+                zip.file(file.filename, file.content);
+            });
+
+            zip.generateAsync({ type: "blob" })
+                .then(function(content) {
+                    // İndirme işlemi için basit bir yöntem
+                    const a = document.createElement('a');
+                    a.href = URL.createObjectURL(content);
+                    a.download = "ai_code_studio.zip";
+                    document.body.appendChild(a);
+                    a.click();
+                    document.body.removeChild(a);
+                    URL.revokeObjectURL(a.href);
+                });
+        }
+        
+        // TTS (Text-to-Speech) - Sesle Oku
+        function readMessage(buttonElement) {
+            const messageDiv = buttonElement.closest('.message');
+            // Kodu ve aksiyonları hariç tutarak sadece metni al
+            let textToRead = messageDiv.textContent.replace(/Sesle Oku 🎙️|Kopyala 📋|Kodu İndir \(ZIP\) 💾/g, '').trim();
+
+            if ('speechSynthesis' in window) {
+                window.speechSynthesis.cancel(); // Önceki okumayı durdur
+
+                const utterance = new SpeechSynthesisUtterance(textToRead);
+                utterance.lang = 'tr-TR';
+                
+                // Konuşma başlangıcı ve bitişi için görsel geri bildirim eklenebilir
+                // utterance.onstart = () => {};
+                // utterance.onend = () => {};
+
+                window.speechSynthesis.speak(utterance);
+            } else {
+                alert("Tarayıcınız Sesli Okuma (TTS) özelliğini desteklemiyor.");
+            }
+        }
+        
+        // Kopyalama İşlevi
+        function copyToClipboard(buttonElement) {
+            const messageDiv = buttonElement.closest('.message');
+            // Kodu ve aksiyonları hariç tutarak sadece metni al
+            let textToCopy = messageDiv.textContent.replace(/Sesle Oku 🎙️|Kopyala 📋|Kodu İndir \(ZIP\) 💾/g, '').trim();
+
+            navigator.clipboard.writeText(textToCopy)
+                .then(() => {
+                    buttonElement.textContent = 'Kopyalandı! ✅';
+                    setTimeout(() => {
+                        buttonElement.textContent = 'Kopyala 📋';
+                    }, 1500);
+                })
+                .catch(err => {
+                    console.error('Kopyalama başarısız:', err);
+                    alert('Kopyalama başarısız oldu.');
+                });
+        }
+
+        // STT (Speech-to-Text) - Sesle Konuşma
+        if ('webkitSpeechRecognition' in window || 'SpeechRecognition' in window) {
+            const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+            const recognition = new SpeechRecognition();
+            recognition.continuous = false; // Tek bir konuşma için
+            recognition.lang = 'tr-TR';
+
+            recognition.onstart = () => {
+                isRecording = true;
+                voiceBtn.classList.add('recording');
+                messageInput.placeholder = "Dinleniyor... Lütfen konuşun...";
+            };
+
+            recognition.onresult = (event) => {
+                const transcript = event.results[0][0].transcript;
+                messageInput.value = transcript;
+            };
+
+            recognition.onend = () => {
+                isRecording = false;
+                voiceBtn.classList.remove('recording');
+                messageInput.placeholder = "Bir soru sorun, bir kod isteyin...";
+                if (messageInput.value) {
+                    handleSend();
+                }
+            };
+
+            recognition.onerror = (event) => {
+                console.error('Konuşma tanıma hatası:', event.error);
+                isRecording = false;
+                voiceBtn.classList.remove('recording');
+                messageInput.placeholder = "Bir soru sorun, bir kod isteyin...";
+            };
+
+            voiceBtn.addEventListener('click', () => {
+                if (!isAwaitingResponse) {
+                    if (isRecording) {
+                        recognition.stop();
+                    } else {
+                        recognition.start();
+                    }
+                }
+            });
+        } else {
+            voiceBtn.style.display = 'none';
+        }
+
+        // Klavye kısayolu (Enter)
+        messageInput.addEventListener('keypress', (e) => {
+            if (e.key === 'Enter') {
+                handleSend();
+            }
+        });
+
+        sendBtn.addEventListener('click', handleSend);
+        
+        // Matrix Animasyonu
+        const canvas = document.getElementById('matrix-canvas');
+        const ctx = canvas.getContext('2d');
+
+        let matrixW, matrixH; // 'W' ve 'H' yerine benzersiz isimler kullanılıyor
+        const alphabet = "01"; // Basitleştirilmiş Binary Yağmur
+        const fontSize = 16;
+        let columns;
+        let drops = [];
+
+        function resizeCanvas() {
+            // Benzersiz küresel değişkenlere değer ataması yapılıyor
+            matrixW = canvas.width = window.innerWidth; 
+            matrixH = canvas.height = window.innerHeight;
+            columns = Math.floor(matrixW / fontSize);
+            drops = [];
+            for (let i = 0; i < columns; i++) {
+                drops.push(0);
+            }
+        }
+        window.addEventListener('resize', resizeCanvas);
+        resizeCanvas();
+
+        function drawMatrix() {
+            ctx.fillStyle = 'rgba(10, 14, 16, 0.05)'; // Hafif karartma
+            ctx.fillRect(0, 0, matrixW, matrixH);
+
+            ctx.fillStyle = '#00ff88'; // Neon yeşil
+            ctx.font = `${fontSize}px monospace`;
+
+            for (let i = 0; i < drops.length; i++) {
+                const text = alphabet[Math.floor(Math.random() * alphabet.length)];
+                ctx.fillText(text, i * fontSize, drops[i] * fontSize);
+
+                if (drops[i] * fontSize > matrixH && Math.random() > 0.975) {
+                    drops[i] = 0;
+                }
+                drops[i]++;
+            }
+            requestAnimationFrame(drawMatrix);
+        }
+
+        // Uygulama Başlatma
+        window.onload = function() {
+            checkAuth();
+            drawMatrix(); // Matrix animasyonunu başlat
+        };
+        /* JAVASCRIPT Bitişi */
+    </script>
+</body>
+
+</html>
